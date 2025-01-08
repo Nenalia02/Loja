@@ -1,3 +1,5 @@
+import sqlite3
+
 class Produto:
     def __init__(self, nome, preco, estoque):
         self.nome = nome
@@ -10,39 +12,69 @@ class Produto:
 
 class Loja:
     def __init__(self):
-        self.produtos = []
+        self.conexao = sqlite3.connect("loja.db")
+        self.cursor = self.conexao.cursor()
+        self.criar_tabela()
+
+#Criando tabela para armazenar dados no banco
+    def criar_tabela(self):
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS produtos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT UNIQUE,
+                preco REAL,
+                estoque INTEGER
+            )
+        """)
+        self.conexao.commit()
 
     def adicionar_produto(self, produto):
-        for p in self.produtos:
-            if p.nome == produto.nome:
-                return f"\nO produto '{produto.nome}' já está cadastrado."
-        self.produtos.append(produto)
-        return f"\nProduto '{produto.nome}' adicionado com sucesso."
+        try:
+            self.cursor.execute("INSERT INTO produtos (nome, preco, estoque) VALUES (?, ?, ?)",
+                                (produto.nome, produto.preco, produto.estoque))
+            self.conexao.commit()
+            return f"\nProduto '{produto.nome}' adicionado com sucesso."
+        except sqlite3.IntegrityError:
+            return f"\nO produto '{produto.nome}' já está cadastrado."
 
     def listar_produtos(self):
-        if not self.produtos:
+        self.cursor.execute("SELECT nome, preco, estoque FROM produtos")
+        produtos = self.cursor.fetchall()
+        if not produtos:
             return "\nAinda não há produtos cadastrados na loja."
         else:
-            print(f"\nProdutos registrados: ")
-            return "\n".join(str(produto) for produto in self.produtos)
+            resultado = "\nProdutos registrados:\n"
+            for produto in produtos:
+                resultado += f"{produto[0]} - R$ {produto[1]:.2f} (Estoque: {produto[2]})\n"
+            return resultado
 
     def vender_produto(self, nome, quantidade):
-        for produto in self.produtos:
-            if produto.nome == nome:
-                if produto.estoque >= quantidade:
-                    produto.estoque -= quantidade
-                    total = produto.preco * quantidade
-                    return f"\nVenda realizada! {quantidade} unidade(s) de '{nome}' vendida(s) por R$ {total:.2f}."
-                else:
-                    return f"\nEstoque insuficiente para '{nome}'. \nEstoque atual: {produto.estoque}."
+        self.cursor.execute("SELECT estoque, preco FROM produtos WHERE nome = ?", (nome,))
+        produto = self.cursor.fetchone()
+        if produto:
+            estoque, preco = produto
+            if estoque >= quantidade:
+                novo_estoque = estoque - quantidade
+                self.cursor.execute("UPDATE produtos SET estoque = ? WHERE nome = ?", (novo_estoque, nome))
+                self.conexao.commit()
+                total = preco * quantidade
+                return f"\nVenda realizada! {quantidade} unidade(s) de '{nome}' vendida(s) por R$ {total:.2f}."
+            else:
+                return f"\nEstoque insuficiente para '{nome}'. Estoque atual: {estoque}."
         return f"\nO produto '{nome}' não está cadastrado na loja."
 
     def repor_estoque(self, nome, quantidade):
-        for produto in self.produtos:
-            if produto.nome == nome:
-                produto.estoque += quantidade
-                return f"\nEstoque do produto '{nome}' atualizado. Novo estoque: {produto.estoque}."
+        self.cursor.execute("SELECT estoque FROM produtos WHERE nome = ?", (nome,))
+        produto = self.cursor.fetchone()
+        if produto:
+            novo_estoque = produto[0] + quantidade
+            self.cursor.execute("UPDATE produtos SET estoque = ? WHERE nome = ?", (novo_estoque, nome))
+            self.conexao.commit()
+            return f"\nEstoque do produto '{nome}' atualizado. Novo estoque: {novo_estoque}."
         return f"\nO produto '{nome}' não está cadastrado na loja."
+
+    def fechar_conexao(self):
+        self.conexao.close()
 
 
 def menu_loja():
@@ -66,8 +98,7 @@ def menu_loja():
             print(loja.adicionar_produto(produto))
 
         elif opcao == "2":
-            produtos = loja.listar_produtos()
-            print(produtos)
+            print(loja.listar_produtos())
 
         elif opcao == "3":
             nome = input("Digite o nome do produto a ser vendido: ")
@@ -80,7 +111,8 @@ def menu_loja():
             print(loja.repor_estoque(nome, quantidade))
 
         elif opcao == "5":
-            print("Agradecemos pela preferência")
+            print("Agradecemos pela preferência!")
+            loja.fechar_conexao()
             break
 
         else:
