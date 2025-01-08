@@ -1,1 +1,1 @@
-Esse projeto foi desenvolvido para a aula de Orientação a Objetos do Professor Henrique da UnB. É um sistema de loja simples, pode-se adicionar, listar, vender e repor produtos. Ele salva os dados de produtos, preço e estoque em um banco de dados. (Tem alguns produtos já pré-registrados)
+Esse projeto foi desenvolvido para a aula de Orientação a Objetos do Professor Henrique da UnB. É um sistema de loja simples, pode-se adicionar, listar, vender e repor produtos. Ele salva os dados de produtos, preço e estoque em um banco de dados.
